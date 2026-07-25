@@ -233,11 +233,19 @@
     canvas.style.height = h + 'px';
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
-    cacheCanvas = document.createElement('canvas');
-    cacheCanvas.width = w * dpr;
-    cacheCanvas.height = h * dpr;
-    cacheCtx = cacheCanvas.getContext('2d');
-    cacheCtx.scale(dpr, dpr);
+    // Reuse existing cache canvas if dimensions match, otherwise resize
+    const newW = w * dpr;
+    const newH = h * dpr;
+    if (!cacheCanvas || cacheCanvas.width !== newW || cacheCanvas.height !== newH) {
+      if (!cacheCanvas) {
+        cacheCanvas = document.createElement('canvas');
+        cacheCtx = cacheCanvas.getContext('2d');
+      }
+      cacheCanvas.width = newW;
+      cacheCanvas.height = newH;
+      cacheCtx.setTransform(1, 0, 0, 1, 0, 0);
+      cacheCtx.scale(dpr, dpr);
+    }
     strokesChanged = true;
   }
   window.addEventListener('resize', resizeCanvas);

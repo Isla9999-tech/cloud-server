@@ -126,6 +126,7 @@ function init(io, accountModule) {
 
     sock.on('spectate-room', (roomId) => {
       const r = tRooms.get(roomId); if (!r) return;
+      sock._hb = Date.now();
       if (!r.players.includes(sock.id) && !r.spectators.includes(sock.id)) { r.spectators.push(sock.id); sock.join(roomId); sendSpecState(sock, r); }
       broadcastRoom(r);
     });
@@ -168,6 +169,12 @@ function init(io, accountModule) {
         return;
       }
 
+      // Track line clears for attack validation
+      const prevLines = g.lines[sock.id] || 0;
+      const linesCleared = Math.max(0, lines - prevLines);
+      if (!g.attackCredits) g.attackCredits = {};
+      g.attackCredits[sock.id] = (g.attackCredits[sock.id] || 0) + Math.floor(linesCleared / 2);
+
       g.boards[sock.id] = board; g.scores[sock.id] = score; g.lines[sock.id] = lines;
       const opp = g.p1 === sock.id ? g.p2 : g.p1;
       tetrisIO.to(opp).emit('opponent-state', { id: sock.id, board, score, lines });
@@ -176,8 +183,15 @@ function init(io, accountModule) {
 
     sock.on('send-attack', (count) => {
       const g = tGames.get(sock.id);
+      if (!g || !g.active) return;
       count = Math.max(0, Math.min(TETRIS_MAX_ATTACK, Number.isFinite(Number(count)) ? Math.floor(Number(count)) : 0));
-      if (!g || !g.active || count <= 0) return;
+      if (count <= 0) return;
+      // Validate against accumulated attack credits (1 attack per 2 lines cleared)
+      if (!g.attackCredits) g.attackCredits = {};
+      const credits = g.attackCredits[sock.id] || 0;
+      if (credits <= 0) { console.log(`[CHEAT] ${sock.id} sent attack with 0 credits`); return; }
+      count = Math.min(count, credits);
+      g.attackCredits[sock.id] = credits - count;
       const opp = g.p1 === sock.id ? g.p2 : g.p1, rows = [];
       for (let i = 0; i < count; i++) { const hole = Math.floor(Math.random() * T_COLS), row = Array(T_COLS).fill(1); row[hole] = 0; rows.push(row); }
       tetrisIO.to(opp).emit('incoming-attack', rows);

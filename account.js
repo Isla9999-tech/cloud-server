@@ -96,8 +96,9 @@ function upgradeGuest(token, newName) {
   if (!user || !user.is_guest) return null;
   const name = String(newName || '').trim().slice(0, 12) || user.name;
   const newToken = genToken();
-  db.prepare('UPDATE users SET name = ?, token = ?, is_guest = 0 WHERE id = ?')
-    .run(name, newToken, user.id);
+  const result = db.prepare('UPDATE users SET name = ?, token = ?, is_guest = 0 WHERE id = ? AND token = ? AND is_guest = 1')
+    .run(name, newToken, user.id, token);
+  if (result.changes === 0) return null;
   return { id: user.id, name, token: newToken, is_guest: 0 };
 }
 

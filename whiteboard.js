@@ -42,7 +42,8 @@ function init(io, accountModule) {
       const colors = ['#e94560', '#f0a000', '#4ecca3', '#7cb8e8', '#a000f0', '#00f0f0'];
       const color = colors[wbUsers.length % colors.length];
       const name = cleanText(data.name, '', 12) || cleanText(sock.userName, '画手', 12);
-      wbUsers = wbUsers.filter(u => u.id !== sock.id);
+      const existIdx = wbUsers.findIndex(u => u.id === sock.id);
+      if (existIdx >= 0) wbUsers.splice(existIdx, 1);
       wbUsers.push({ id: sock.id, name, color });
       sock.emit('history', wbStrokes);
       wbIO.emit('users', wbUsers);
@@ -113,7 +114,8 @@ function init(io, accountModule) {
     sock.on('disconnect', () => {
       console.log(`[WB-] ${sock.id}`);
       wbCurrentStroke.delete(sock.id);
-      wbUsers = wbUsers.filter(u => u.id !== sock.id);
+      const removeIdx = wbUsers.findIndex(u => u.id === sock.id);
+      if (removeIdx >= 0) wbUsers.splice(removeIdx, 1);
       wbIO.emit('users', wbUsers);
     });
   });

@@ -230,6 +230,26 @@
     updateUI();
   });
 
+  socket.on('delta', (d) => {
+    if (!currState) return;
+    prevState = currState;
+    const merged = { snakes: [...currState.snakes], food: [...currState.food], gridW: currState.gridW, gridH: currState.gridH };
+    for (const sn of d.snakes) {
+      const idx = merged.snakes.findIndex(s => s.id === sn.id);
+      if (idx >= 0) merged.snakes[idx] = sn; else merged.snakes.push(sn);
+    }
+    if (d.removedSnakes) merged.snakes = merged.snakes.filter(s => !d.removedSnakes.includes(s.id));
+    if (d.foodAdded) merged.food.push(...d.foodAdded);
+    if (d.foodRemoved) {
+      const removeSet = new Set(d.foodRemoved.map(f => f.x + ',' + f.y));
+      merged.food = merged.food.filter(f => !removeSet.has(f.x + ',' + f.y));
+    }
+    currState = merged;
+    stateTime = performance.now();
+    myId = socket.id;
+    updateUI();
+  });
+
   socket.on('you-died', () => { isDead = true; deathOverlay.style.display = 'flex'; });
   socket.on('you-respawned', () => { isDead = false; deathOverlay.style.display = 'none'; });
 

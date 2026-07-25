@@ -17,6 +17,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "blob:", "data:"],
       connectSrc: ["'self'", "wss:", "ws:"],
@@ -34,10 +35,21 @@ account.registerRoutes(app);
 // ===== CSRF 保护 =====
 app.use((req, res, next) => {
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
-    const origin = req.headers.origin || req.headers.referer || '';
+    const origin = req.headers.origin || '';
+    const referer = req.headers.referer || '';
     const host = req.headers.host || '';
-    if (origin && !origin.includes(host)) {
-      return res.status(403).json({ error: 'CSRF 检测失败' });
+    // Must have origin or referer, and it must match the host exactly
+    if (!origin && !referer) {
+      return res.status(403).json({ error: 'CSRF 检测失败：缺少 Origin/Referer' });
+    }
+    const source = origin || referer;
+    try {
+      const url = new URL(source);
+      if (url.host !== host) {
+        return res.status(403).json({ error: 'CSRF 检测失败：来源不匹配' });
+      }
+    } catch {
+      return res.status(403).json({ error: 'CSRF 检测失败：无效来源' });
     }
   }
   next();
@@ -283,7 +295,7 @@ function buildStatus() {
   };
 }
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`ISLA LABS: http://localhost:${PORT}`);
 });
